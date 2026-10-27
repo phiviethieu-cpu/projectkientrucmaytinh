@@ -1,0 +1,21 @@
+// microcode.mem - Control store cho tlc_micro (nạp bằng $readmemb)
+//
+// LIGHTS   DUR  CD NXT_T NXT_F     addr  nhãn   ý nghĩa
+// nsRYG/ewRYG
+   001100_1000_10_0001_0000      // 0  NSG   NS xanh >= 8 tick, rồi chờ sensor|night
+   010100_0011_00_0010_0010      // 1  NSY   NS vàng 3 tick
+   100100_0001_01_0110_0011      // 2  AR1   đỏ toàn phần 1 tick; night -> FON
+   100001_0101_00_0100_0100      // 3  EWG   EW xanh 5 tick
+   100010_0011_00_0101_0101      // 4  EWY   EW vàng 3 tick
+   100100_0001_01_0110_0000      // 5  AR2   đỏ toàn phần 1 tick; night -> FON
+   010010_0001_00_0111_0111      // 6  FON   đêm: vàng sáng
+   000000_0001_01_0110_0101      // 7  FOFF  đêm: tắt; còn night -> FON, hết -> AR2
+// 8..15 chưa dùng: đỏ toàn phần rồi quay về NSG (an toàn khi uPC hỏng)
+   100100_0001_00_0000_0000      // 8
+   100100_0001_00_0000_0000      // 9
+   100100_0001_00_0000_0000      // 10
+   100100_0001_00_0000_0000      // 11
+   100100_0001_00_0000_0000      // 12
+   100100_0001_00_0000_0000      // 13
+   100100_0001_00_0000_0000      // 14
+   100100_0001_00_0000_0000      // 15
