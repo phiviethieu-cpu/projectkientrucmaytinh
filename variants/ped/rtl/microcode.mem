@@ -1,0 +1,21 @@
+// microcode.mem - Control store cho tlc_micro, BẢN CÓ PHA ĐI BỘ
+//
+// LIGHTS   DUR  CD  NXT_T NXT_F C    addr  nhãn   ý nghĩa
+// nsRYG/ewRYG                   L
+   001100_1000_010_0001_0000_0      // 0  NSG   NS xanh >= 8 tick, rồi chờ sensor|night
+   010100_0011_000_0010_0010_0      // 1  NSY   NS vàng 3 tick
+   100100_0001_001_0110_0011_0      // 2  AR1   đỏ toàn phần 1 tick; night -> FON
+   100001_0101_000_0100_0100_0      // 3  EWG   EW xanh 5 tick
+   100010_0011_000_0101_0101_0      // 4  EWY   EW vàng 3 tick
+   100100_0001_001_0110_1000_0      // 5  AR2   đỏ toàn phần 1 tick; night -> FON, không thì AR2B
+   010010_0001_000_0111_0111_0      // 6  FON   đêm: vàng sáng
+   000000_0001_001_0110_0101_0      // 7  FOFF  đêm: tắt; còn night -> FON, hết -> AR2
+   100100_0000_100_1001_0000_0      // 8  AR2B  tức thời: có yêu cầu đi bộ -> PED, không -> NSG
+   100100_0100_000_0000_0000_1      // 9  PED   đỏ toàn phần 4 tick cho người đi bộ, xoá yêu cầu
+// 10..15 chưa dùng: đỏ toàn phần rồi quay về NSG
+   100100_0001_000_0000_0000_0      // 10
+   100100_0001_000_0000_0000_0      // 11
+   100100_0001_000_0000_0000_0      // 12
+   100100_0001_000_0000_0000_0      // 13
+   100100_0001_000_0000_0000_0      // 14
+   100100_0001_000_0000_0000_0      // 15
