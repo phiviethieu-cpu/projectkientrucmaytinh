@@ -1,0 +1,11 @@
+# kết quả mô phỏng và tổng hợp (sinh lại bằng scripts/)
+sim/
+synth/
+variants/ped/sim/
+*.vvp
+*.vcd
+*.lst
+__pycache__/
+
+# báo cáo LaTeX để riêng, không thuộc mã nguồn
+GraduationThesisTemplate-main - Copy/
