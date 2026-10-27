@@ -1,0 +1,57 @@
+; ============================================================================
+; traffic.uasm - Vi chương trình dọc cho tlc_vmicro
+; Dịch: python sw/uasm.py sw/traffic.uasm rtl/vmicrocode.mem
+; ============================================================================
+
+.equ L_NSG, 0b001100
+.equ L_NSY, 0b010100
+.equ L_AR,  0b100100
+.equ L_EWG, 0b100001
+.equ L_EWY, 0b100010
+.equ L_FON, 0b010010
+.equ L_OFF, 0b000000
+
+.equ T_NSG, 8
+.equ T_Y,   3
+.equ T_AR,  1
+.equ T_EWG, 5
+.equ T_FL,  1
+
+nsg:    LIGHT L_NSG
+        TIMER T_NSG
+nsg_w:  BR    TRUN, nsg_w        ; chờ hết 8 tick
+        BR    SN, nsy            ; có xe phụ hoặc ban đêm -> chuyển pha
+        TIMER 1                  ; không thì chờ thêm 1 tick rồi xét lại
+        BR    ALWAYS, nsg_w
+
+nsy:    LIGHT L_NSY
+        TIMER T_Y
+nsy_w:  BR    TRUN, nsy_w
+
+ar1:    LIGHT L_AR
+        TIMER T_AR
+ar1_w:  BR    TRUN, ar1_w
+        BR    NIGHT, fon
+
+ewg:    LIGHT L_EWG
+        TIMER T_EWG
+ewg_w:  BR    TRUN, ewg_w
+
+ewy:    LIGHT L_EWY
+        TIMER T_Y
+ewy_w:  BR    TRUN, ewy_w
+
+ar2:    LIGHT L_AR
+        TIMER T_AR
+ar2_w:  BR    TRUN, ar2_w
+        BR    NNIGHT, nsg        ; không phải ban đêm -> về NSG, ngược lại rơi xuống FON
+
+fon:    LIGHT L_FON
+        TIMER T_FL
+fon_w:  BR    TRUN, fon_w
+
+foff:   LIGHT L_OFF
+        TIMER T_FL
+foff_w: BR    TRUN, foff_w
+        BR    NIGHT, fon
+        BR    ALWAYS, ar2

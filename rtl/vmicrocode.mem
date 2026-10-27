@@ -1,0 +1,33 @@
+// Sinh tự động từ traffic.uasm bởi sw/uasm.py - không sửa tay
+   00_00001100   //  0  nsg:    LIGHT L_NSG
+   01_00001000   //  1  TIMER T_NSG
+   10_00100010   //  2  nsg_w:  BR    TRUN, nsg_w        ; chờ hết 8 tick
+   10_10000110   //  3  BR    SN, nsy            ; có xe phụ hoặc ban đêm -> chuyển pha
+   01_00000001   //  4  TIMER 1                  ; không thì chờ thêm 1 tick rồi xét lại
+   10_00000010   //  5  BR    ALWAYS, nsg_w
+   00_00010100   //  6  nsy:    LIGHT L_NSY
+   01_00000011   //  7  TIMER T_Y
+   10_00101000   //  8  nsy_w:  BR    TRUN, nsy_w
+   00_00100100   //  9  ar1:    LIGHT L_AR
+   01_00000001   // 10  TIMER T_AR
+   10_00101011   // 11  ar1_w:  BR    TRUN, ar1_w
+   10_01010111   // 12  BR    NIGHT, fon
+   00_00100001   // 13  ewg:    LIGHT L_EWG
+   01_00000101   // 14  TIMER T_EWG
+   10_00101111   // 15  ewg_w:  BR    TRUN, ewg_w
+   00_00100010   // 16  ewy:    LIGHT L_EWY
+   01_00000011   // 17  TIMER T_Y
+   10_00110010   // 18  ewy_w:  BR    TRUN, ewy_w
+   00_00100100   // 19  ar2:    LIGHT L_AR
+   01_00000001   // 20  TIMER T_AR
+   10_00110101   // 21  ar2_w:  BR    TRUN, ar2_w
+   10_01100000   // 22  BR    NNIGHT, nsg        ; không phải ban đêm -> về NSG, ngược lại rơi xuống FON
+   00_00010010   // 23  fon:    LIGHT L_FON
+   01_00000001   // 24  TIMER T_FL
+   10_00111001   // 25  fon_w:  BR    TRUN, fon_w
+   00_00000000   // 26  foff:   LIGHT L_OFF
+   01_00000001   // 27  TIMER T_FL
+   10_00111100   // 28  foff_w: BR    TRUN, foff_w
+   10_01010111   // 29  BR    NIGHT, fon
+   10_00010011   // 30  BR    ALWAYS, ar2
+   10_00000000   // 31  (trống) BR ALWAYS, 0
