@@ -7,17 +7,17 @@
 //   sw[3:2]: chọn phương pháp hiển thị
 //   led[5:0]: {ns_r, ns_y, ns_g, ew_r, ew_y, ew_g}   led[15:12]: phương pháp đang chọn
 // ============================================================================
-`timescale 1ns/1ps
+`timescale 1ns/1ps                                          // đơn vị thời gian và độ chính xác khi mô phỏng
 
-module basys3_top (
-    input  wire        clk,
-    input  wire        btnC,
-    input  wire [3:0]  sw,
-    output wire [15:0] led
+module basys3_top (                                         // tên cổng trùng với basys3.xdc
+    input  wire        clk,                                 // clock hệ thống
+    input  wire        btnC,                                // nút giữa, reset mức cao
+    input  wire [3:0]  sw,                                  // công tắc
+    output wire [15:0] led                                  // LED đơn
 );
-    board_demo #(.CLK_HZ(100_000_000), .RST_ACTIVE_LOW(0)) u (
-        .clk(clk), .btn_rst(btnC), .sw_night(sw[0]), .sw_sensor(sw[1]), .sel(sw[3:2]),
-        .led(led[5:0]), .led_sel(led[15:12])
+    board_demo #(.CLK_HZ(100_000_000), .RST_ACTIVE_LOW(0)) u (  // clock 100 MHz
+        .clk(clk), .btn_rst(btnC), .sw_night(sw[0]), .sw_sensor(sw[1]), .sel(sw[3:2]),  // đầu vào
+        .led(led[5:0]), .led_sel(led[15:12])                // đèn và phương pháp đang chọn
     );
-    assign led[11:6] = 6'b0;
+    assign led[11:6] = 6'b0;                                // LED không dùng thì tắt
 endmodule

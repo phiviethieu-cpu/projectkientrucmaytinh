@@ -18,13 +18,16 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
+# mọi file trung gian nằm ở đây
 WORK = ROOT / "sim" / "icebram"
 
 
+# tìm công cụ, ưu tiên bản cài sẵn rồi tới bản yowasp
 def tool(name):
     return shutil.which(name) or shutil.which("yowasp-" + name)
 
 
+# chạy công cụ trong WORK, có thể chuyển hướng vào/ra qua file
 def run(args, stdin=None, stdout=None):
     with open(WORK / stdin, "rb") if stdin else open(subprocess.os.devnull, "rb") as fi, \
          open(WORK / stdout, "wb") if stdout else open(subprocess.os.devnull, "wb") as fo:
@@ -36,20 +39,24 @@ def run(args, stdin=None, stdout=None):
 def bram_words(asc):
     """16 dòng .ram_data đầu tiên -> 256 từ 16 bit (thứ tự bit thô của iCE40)."""
     lines = (WORK / asc).read_text().splitlines()
+    # khối BRAM đầu tiên trong file .asc
     i = next(k for k, line in enumerate(lines) if line.startswith(".ram_data"))
     words = []
     for row in lines[i + 1:i + 17]:
         v = int(row, 16)
+        # mỗi dòng 256 bit chứa 16 từ
         words += [(v >> (16 * j)) & 0xFFFF for j in range(16)]
     return words
 
 
+# đọc file .hex thành danh sách số
 def hex_words(name):
     return [int(x, 16) for x in (WORK / name).read_text().split()]
 
 
 def main():
     sys.stdout.reconfigure(encoding="utf-8")
+    # firmware EWG = 7 của thí nghiệm A
     new_fw = ROOT / "sim" / "exp_ewg7" / "sw" / "traffic.hex"
     if not new_fw.exists():
         sys.exit("chưa có sim/exp_ewg7/sw/traffic.hex, hãy chạy scripts/experiments.py trước")
@@ -76,21 +83,26 @@ def main():
 
     # 3. kiểm chứng: suy hoán vị bit từ khuôn ngẫu nhiên rồi so nội dung BRAM
     tg, tw = bram_words("cpu_template.asc"), hex_words("template.hex")
+    # lấy bit thứ b của w
     bit = lambda w, b: (w >> b) & 1
     perm = {}
     for b in range(16):
+        # bit dữ liệu nào khớp với bit b ở cả 256 từ
         cand = [a for a in range(16) if all(bit(tg[i], b) == bit(tw[i], a) for i in range(256))]
         if len(cand) != 1:
             sys.exit(f"không suy được hoán vị cho bit {b}: {cand}")
         perm[b] = cand[0]
+    # hoán vị một từ theo thứ tự của bitstream
     apply = lambda w: sum(bit(w, perm[b]) << b for b in range(16))
     print("Hoán vị bit dữ liệu BRAM iCE40 (bit trong bitstream <- bit dữ liệu):", perm)
     ok = True
     for name in ("old", "new"):
+        # so BRAM sau khi vá với file hex
         match = [apply(w) for w in hex_words(f"{name}.hex")] == bram_words(f"cpu_{name}.asc")
         ok &= match
         print(f"cpu_{name}.asc: BRAM {'khớp' if match else 'KHÔNG khớp'} {name}.hex")
     a, b = (WORK / "cpu_old.bin").read_bytes(), (WORK / "cpu_new.bin").read_bytes()
+    # số byte khác nhau giữa hai bitstream
     nd = sum(x != y for x, y in zip(a, b)) + abs(len(a) - len(b))
     print(f"Bitstream: {len(a)} byte, khác nhau {nd} byte (chỉ phần BRAM, không place & route lại)")
     print(">>> PASS" if ok else ">>> FAIL")

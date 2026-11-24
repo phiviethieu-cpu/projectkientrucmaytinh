@@ -4,7 +4,7 @@
 // Mã hoá đèn (6 bit): {ns_r, ns_y, ns_g, ew_r, ew_y, ew_g}
 //   NS = hướng Bắc-Nam (đường chính), EW = hướng Đông-Tây (đường phụ)
 // ============================================================================
-`ifndef TLC_DEFS_VH
+`ifndef TLC_DEFS_VH                                         // tránh nạp file hai lần
 `define TLC_DEFS_VH
 
 // Tổ hợp đèn của từng pha
@@ -23,4 +23,4 @@
 `define T_EWG  4'd5         // xanh EW
 `define T_FL   4'd1         // nửa chu kỳ nhấp nháy
 
-`endif
+`endif                                                      // kết thúc TLC_DEFS_VH

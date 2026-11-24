@@ -8,49 +8,49 @@
 //   - LED của 4 bản giống nhau tại mỗi tick, và chạy qua đủ các pha
 // CLK_HZ đặt nhỏ (64) để mô phỏng nhanh; trên kit dùng 50_000_000.
 // ============================================================================
-`timescale 1ns/1ps
-`include "tlc_defs.vh"
+`timescale 1ns/1ps                                                                  // đơn vị thời gian và độ chính xác khi mô phỏng
+`include "tlc_defs.vh"                                                              // mã đèn và thời lượng các pha
 
 module tb_top_board;
-    localparam CLK_HZ = 64;
+    localparam CLK_HZ = 64;                                                         // một giây mô phỏng chỉ dài 64 chu kỳ
 
-    reg clk = 1'b0, key_n = 1'b1, sw_night = 1'b0, sw_sensor = 1'b0;
+    reg clk = 1'b0, key_n = 1'b1, sw_night = 1'b0, sw_sensor = 1'b0;                // đầu vào như trên kit
     always #10 clk = ~clk;     // 50 MHz
 
-    wire [5:0] led [0:3];
+    wire [5:0] led [0:3];                                                           // LED của bốn bản
     genvar g;
     generate
-        for (g = 0; g < 4; g = g + 1) begin : dut
+        for (g = 0; g < 4; g = g + 1) begin : dut                                   // tạo bốn bản IMPL = 0..3
             top_board #(.CLK_HZ(CLK_HZ), .IMPL(g), .RST_ACTIVE_LOW(1)) u (
                 .clk(clk), .btn_rst(key_n), .sw_night(sw_night), .sw_sensor(sw_sensor), .led(led[g]));
         end
     endgenerate
 
-    wire tick = dut[0].u.tick;
-    integer ntick = 0, errors = 0, last_tick_cycle = -1, cycle = 0;
+    wire tick = dut[0].u.tick;                                                      // tick bên trong bản đầu tiên
+    integer ntick = 0, errors = 0, last_tick_cycle = -1, cycle = 0;                 // bộ đếm, -1 nghĩa là chưa có tick
     reg [7:0] seen;            // pha nào đã xuất hiện
     integer k;
 
     integer rst_cycles = 0;    // số chu kỳ reset nội bộ đang tích cực
     always @(posedge clk) begin
-        cycle = cycle + 1;
-        if (dut[0].u.rst) begin
-            rst_cycles = rst_cycles + 1;
+        cycle = cycle + 1;                                                          // đếm chu kỳ clock
+        if (dut[0].u.rst) begin                                                     // đang reset bên trong
+            rst_cycles = rst_cycles + 1;                                            // đếm số chu kỳ reset
             last_tick_cycle = -1;  // bộ chia đếm lại từ đầu sau reset
         end
         if (tick) begin
             ntick = ntick + 1;
-            if (last_tick_cycle >= 0 && cycle - last_tick_cycle != CLK_HZ) begin
+            if (last_tick_cycle >= 0 && cycle - last_tick_cycle != CLK_HZ) begin    // khoảng cách hai tick sai
                 $display("[LỖI] khoảng cách 2 tick = %0d chu kỳ, mong đợi %0d", cycle - last_tick_cycle, CLK_HZ);
                 errors = errors + 1;
             end
-            last_tick_cycle = cycle;
-            for (k = 1; k < 4; k = k + 1)
+            last_tick_cycle = cycle;                                                // nhớ lại để đo lần sau
+            for (k = 1; k < 4; k = k + 1)                                           // so ba bản còn lại với bản 0
                 if (led[k] !== led[0]) begin
                     $display("[LỖI] tick %0d: IMPL0=%b IMPL%0d=%b", ntick, led[0], k, led[k]);
                     errors = errors + 1;
                 end
-            case (led[0])
+            case (led[0])                                                           // đánh dấu pha đã gặp
                 `L_NSG: seen[0] = 1'b1;  `L_NSY: seen[1] = 1'b1;  `L_AR:  seen[2] = 1'b1;
                 `L_EWG: seen[3] = 1'b1;  `L_EWY: seen[4] = 1'b1;  `L_FON: seen[5] = 1'b1;
                 `L_OFF: seen[6] = 1'b1;  default: begin
@@ -60,33 +60,33 @@ module tb_top_board;
     end
 
     initial begin
-        seen = 8'h80;
-        $dumpfile("sim/tb_top_board.vcd");
-        $dumpvars(0, tb_top_board);
+        seen = 8'h80;                                                               // bit 7 không dùng nên đặt sẵn
+        $dumpfile("sim/tb_top_board.vcd");                                          // file sóng cho GTKWave
+        $dumpvars(0, tb_top_board);                                                 // ghi mọi tín hiệu
 
         // bật nguồn: chưa nhấn nút, mạch phải tự reset 1-2 chu kỳ nhờ giá trị
         // đầu của bộ đồng bộ, sau đó tự thoát reset và hiện NSG
-        repeat (5) @(posedge clk);
+        repeat (5) @(posedge clk);                                                  // đợi mạch tự reset
         if (rst_cycles == 0 || dut[0].u.rst !== 1'b0) begin
             $display("[LỖI] không tự reset khi bật nguồn (rst_cycles=%0d)", rst_cycles); errors = errors + 1;
         end
 
         // công tắc đổi lệch pha với clock (giữa 2 cạnh) để thử bộ đồng bộ
-        #(CLK_HZ * 20 * 12 + 3) sw_sensor = 1'b1;
-        #(CLK_HZ * 20 * 30 + 7) sw_night  = 1'b1;
-        #(CLK_HZ * 20 * 12 + 1) sw_night  = 1'b0;
+        #(CLK_HZ * 20 * 12 + 3) sw_sensor = 1'b1;                                   // sau 12 tick, có xe
+        #(CLK_HZ * 20 * 30 + 7) sw_night  = 1'b1;                                   // sau 30 tick nữa, bật đêm
+        #(CLK_HZ * 20 * 12 + 1) sw_night  = 1'b0;                                   // sau 12 tick nữa, tắt đêm
 
         // nhấn nút reset (mức thấp) giữa chừng: mọi bản phải về NSG
-        #(CLK_HZ * 20 * 20 + 9) key_n = 1'b0;
-        #(20 * 5)               key_n = 1'b1;
-        #(CLK_HZ * 20 * 2);
+        #(CLK_HZ * 20 * 20 + 9) key_n = 1'b0;                                       // nhấn reset
+        #(20 * 5)               key_n = 1'b1;                                       // nhả sau 5 chu kỳ
+        #(CLK_HZ * 20 * 2);                                                         // đợi 2 tick
         for (k = 0; k < 4; k = k + 1)
             if (led[k] !== `L_NSG) begin
                 $display("[LỖI] IMPL%0d không về NSG sau reset: %b", k, led[k]); errors = errors + 1;
             end
-        #(CLK_HZ * 20 * 30);
+        #(CLK_HZ * 20 * 30);                                                        // chạy thêm 30 tick
 
-        if (seen !== 8'hFF) begin
+        if (seen !== 8'hFF) begin                                                   // còn pha chưa gặp
             $display("[LỖI] chưa đi qua đủ các pha: seen = %b", seen); errors = errors + 1;
         end
         $display("Số tick: %0d, các pha đã thấy: %b", ntick, seen);

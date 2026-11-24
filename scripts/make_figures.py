@@ -23,7 +23,7 @@ from matplotlib.patches import FancyArrowPatch, FancyBboxPatch  # noqa: E402
 ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "docs" / "figures"
 
-# ---- bảng màu (palette tham chiếu của skill dataviz, đã kiểm tra CVD) ----
+# ---- bảng màu dùng chung cho mọi hình ----
 SURFACE, INK, INK2, MUTED, GRID = "#fcfcfb", "#0b0b0b", "#52514e", "#8a8984", "#e6e5e0"
 SERIES = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100"]     # 4 phương pháp, thứ tự cố định
 METHODS = ["FSM cứng", "Vi chương trình ngang", "Vi chương trình dọc", "CPU mini"]
@@ -38,10 +38,12 @@ plt.rcParams.update({
     "axes.spines.top": False, "axes.spines.right": False,
 })
 
+# mã đèn 6 bit -> tên pha
 PHASE = {0b001100: "NSG", 0b010100: "NSY", 0b100100: "AR", 0b100001: "EWG",
          0b100010: "EWY", 0b010010: "FON", 0b000000: "OFF"}
 
 
+# màu đèn của một hướng: 3 bit cao là NS, 3 bit thấp là EW
 def lamp(code, ns):
     bits = (code >> 3) & 7 if ns else code & 7
     return {4: "R", 2: "Y", 1: "G"}.get(bits, "-")
@@ -50,12 +52,14 @@ def lamp(code, ns):
 # ------------------------------------------------------------------ VCD
 def read_vcd(path, names):
     """Trả về {tên: [(thời_điểm, giá_trị), ...]} cho các tín hiệu ở scope trên cùng."""
+    # ids: mã ngắn trong VCD -> tên tín hiệu
     ids, depth, t = {}, 0, 0
     changes = {n: [] for n in names}
     with open(path, encoding="ascii", errors="replace") as f:
         header = True
         for line in f:
             line = line.strip()
+            # phần khai báo: chỉ lấy tín hiệu ở scope ngoài cùng
             if header:
                 if line.startswith("$scope"):
                     depth += 1
@@ -70,12 +74,15 @@ def read_vcd(path, names):
                 continue
             if not line or line.startswith("$"):
                 continue
+            # mốc thời gian
             if line[0] == "#":
                 t = int(line[1:])
+            # tín hiệu nhiều bit, có x/z thì ghi -1
             elif line[0] == "b":
                 val, code = line[1:].split()
                 if code in ids:
                     changes[ids[code]].append((t, int(val, 2) if set(val) <= {"0", "1"} else -1))
+            # tín hiệu 1 bit
             elif line[0] in "01xz" and line[1:] in ids:
                 changes[ids[line[1:]]].append((t, int(line[0]) if line[0] in "01" else -1))
     return changes
@@ -94,6 +101,7 @@ def value_at(ch, t):
 # ------------------------------------------------------------- hình 1, 2
 def fig_timeline(vcd):
     tick_falls = [t for t, v in vcd["tick"] if v == 0 and t > 0]   # cạnh lấy mẫu
+    # đoạn tick được vẽ
     lo, hi = 14, 120
     samples = tick_falls[lo:hi]
     sigs = ["l_fsm", "l_mic", "l_vmc", "l_cpu"]
@@ -102,6 +110,7 @@ def fig_timeline(vcd):
     for i, s in enumerate(sigs):
         for ns in (True, False):
             lanes.append((f"{SHORT[i]} · {'NS' if ns else 'EW'}", s, ns))
+    # mỗi bộ điều khiển có hai hàng: NS và EW
     for row, (label, s, ns) in enumerate(lanes):
         y = len(lanes) - row + (0.35 if not ns else 0)
         for k, t in enumerate(samples):
@@ -120,11 +129,13 @@ def fig_timeline(vcd):
     ax.set_xlabel("tick (giây)")
     ax.spines["left"].set_visible(False)
     ax.tick_params(axis="y", length=0)
+    # chú giải màu đèn
     for k, (name, col) in enumerate((("Đỏ", "R"), ("Vàng", "Y"), ("Xanh", "G"), ("Tắt", "-"))):
         ax.barh(len(lanes) + 0.9, 3, left=lo + 1 + k * 9, height=0.5, color=LAMP[col])
         ax.text(lo + 4.5 + k * 9, len(lanes) + 0.9, name, va="center", color=INK2)
     ax.set_title("Chuỗi pha đèn của 4 bộ điều khiển, lấy mẫu tại mỗi tick (tick 14–120)",
                  loc="left", color=INK, fontsize=11)
+    # mốc của kịch bản mô phỏng
     for x, txt in ((20, "có xe phụ"), (60, "hết xe"), (90, "bật đêm"), (110, "tắt đêm")):
         ax.axvline(x, color=MUTED, lw=0.8, ls=":")
         ax.text(x + 0.3, -2.75, txt, color=INK2, fontsize=8, va="center")
@@ -138,6 +149,7 @@ def fig_latency(vcd):
     tick_rises = [t for t, v in vcd["tick"] if v == 1]
     period = 10_000  # 10 ns = 10000 ps
     target = None
+    # tìm tick đầu tiên làm đèn FSM đổi từ AR sang NSG
     for tr in tick_rises:
         t_edge = tr + period // 2          # cạnh lên clock có tick = 1
         before = value_at(vcd["l_fsm"], t_edge)
@@ -145,12 +157,14 @@ def fig_latency(vcd):
         if before == 0b100100 and after == 0b001100:
             target = t_edge
             break
+    # số chu kỳ clock được vẽ
     n = 36
     t0 = target - 2 * period
     fig, ax = plt.subplots(figsize=(10, 3.4))
     rows = [("tick", None)] + list(zip(SHORT, ["l_fsm", "l_mic", "l_vmc", "l_cpu"]))
     for r, (label, s) in enumerate(rows):
         y = len(rows) - r
+        # hàng tick vẽ dạng xung
         if s is None:
             xs, ys = [], []
             for c in range(n):
@@ -167,6 +181,7 @@ def fig_latency(vcd):
             lat = first - 2 + 1
             ax.text(n + 0.4, y, f"{lat} chu kỳ", va="center", color=INK, fontsize=9)
             vals.append(None)
+            # mỗi đoạn giá trị không đổi là một hộp
             for c, v in enumerate(vals):
                 if v != prev:
                     if prev is not None:
@@ -203,6 +218,7 @@ def md_rows(path):
     return rows
 
 
+# biểu đồ cột cho bốn phương pháp
 def bars(ax, values, title, unit="", fmt="{:g}"):
     x = range(len(values))
     ax.bar(x, values, width=0.62, color=SERIES, edgecolor=SURFACE, linewidth=2)
@@ -218,6 +234,7 @@ def bars(ax, values, title, unit="", fmt="{:g}"):
 
 
 def fig_compare():
+    # bỏ hàng tiêu đề, cột theo thứ tự của summary.py
     rows = md_rows(ROOT / "synth" / "summary.md")[1:]
     lut = [int(r[4]) for r in rows]
     dff = [int(r[5]) for r in rows]
@@ -236,8 +253,10 @@ def fig_compare():
 
 def fig_exp_ped():
     text = (ROOT / "synth" / "experiments.md").read_text(encoding="utf-8")
+    # chỉ lấy phần thí nghiệm B
     part = text.split("### B.")[1]
     rows = [r for r in md_rows_from_text(part)[1:]]
+    # "+25/−13" -> 38
     def plus(s):
         m = re.match(r"\+(\d+)/−(\d+)", s)
         return int(m.group(1)) + int(m.group(2)) if m else 0
@@ -252,6 +271,7 @@ def fig_exp_ped():
     cats = (("phần cứng (.v)", hw, "#52514e"), ("bộ nhớ / phần mềm", mem, "#9c9b95"),
             ("công cụ (assembler)", tool, "#cfcec8"))
     left = [0] * len(rows)
+    # cột ngang xếp chồng: phần cứng, bộ nhớ, công cụ
     for name, vals, col in cats:
         ax.barh(y, vals, left=left, height=0.55, color=col, edgecolor=SURFACE, linewidth=2, label=name)
         left = [a + b for a, b in zip(left, vals)]
@@ -267,6 +287,7 @@ def fig_exp_ped():
     ax.set_axisbelow(True)
 
     ax = axs[1]
+    # số LUT trước (vòng rỗng) và sau (chấm đặc)
     for i, (a, b) in enumerate(lut):
         yy = len(rows) - 1 - i
         ax.plot([a, b], [yy, yy], color=SERIES[i], lw=2)
@@ -285,6 +306,7 @@ def fig_exp_ped():
     plt.close(fig)
 
 
+# như md_rows nhưng nhận chuỗi
 def md_rows_from_text(text):
     rows = []
     for line in text.splitlines():
@@ -312,6 +334,7 @@ def _edge(b, toward, side=None):
     dx, dy = toward[0] - x, toward[1] - y
     if dx == 0 and dy == 0:
         return (x, y)
+    # giao điểm của tia từ tâm hộp với mép hộp
     t = min((w / 2 + 0.06) / abs(dx) if dx else 1e9, (h / 2 + 0.06) / abs(dy) if dy else 1e9)
     return (x + dx * t, y + dy * t)
 
@@ -333,6 +356,7 @@ def fig_state():
     fig, ax = plt.subplots(figsize=(10, 5.4))
     G, Y, R, O = "#d6f1e6", "#fbe9c2", "#f8d7d6", "#ebeae6"
     w, h = 1.75, 0.95
+    # tám trạng thái, màu theo đèn đang sáng
     B = {
         "NSG":  box(ax, 0.0, 2.2, w, h, "NSG\nNS xanh ≥ 8", G),
         "NSY":  box(ax, 3.2, 2.2, w, h, "NSY\nNS vàng 3", Y),
@@ -369,6 +393,7 @@ def fig_state():
     plt.close(fig)
 
 
+# bốn sơ đồ khối trên cùng một hình
 def fig_arch():
     fig, axs = plt.subplots(2, 2, figsize=(11, 7.6))
     for ax in axs.flat:
@@ -522,6 +547,7 @@ def fig_cpu():
 def main():
     sys.stdout.reconfigure(encoding="utf-8")
     OUT.mkdir(parents=True, exist_ok=True)
+    # sóng của tb_tlc dùng cho hai hình đầu
     vcd = read_vcd(ROOT / "sim" / "tb_tlc.vcd", {"l_fsm", "l_mic", "l_vmc", "l_cpu", "tick", "sensor", "night"})
     fig_timeline(vcd)
     fig_latency(vcd)

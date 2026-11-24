@@ -14,6 +14,7 @@ import operator
 import re
 import sys
 
+# bộ nhớ chương trình của mini_cpu
 MEM_WORDS = 256
 FILL = 0xF000  # ô nhớ trống = HALT
 
@@ -39,6 +40,7 @@ ISA = {
     "HALT": (0xF, ""),
 }
 
+# phép toán được phép trong biểu thức
 _BINOPS = {ast.Add: operator.add, ast.Sub: operator.sub, ast.Mult: operator.mul}
 
 
@@ -48,6 +50,7 @@ class AsmError(Exception):
 
 def eval_expr(text, symbols):
     """Tính biểu thức số nguyên đơn giản, không dùng eval()."""
+    # duyệt cây cú pháp, chỉ nhận số, ký hiệu, + - * và dấu âm
     def walk(node):
         if isinstance(node, ast.Expression):
             return walk(node.body)
@@ -65,6 +68,7 @@ def eval_expr(text, symbols):
     return walk(ast.parse(text.strip(), mode="eval"))
 
 
+# "R2" -> 2
 def parse_reg(tok):
     m = re.fullmatch(r"[Rr]([0-3])", tok.strip())
     if not m:
@@ -76,15 +80,18 @@ def parse_lines(src):
     """Trả về danh sách (số dòng, nhãn, mnemonic, [toán hạng], dòng gốc)."""
     out = []
     for n, raw in enumerate(src.splitlines(), 1):
+        # bỏ chú thích
         line = raw.split(";", 1)[0].strip()
         if not line:
             continue
         label = None
+        # tách nhãn đứng đầu dòng
         m = re.match(r"([A-Za-z_]\w*)\s*:\s*(.*)$", line)
         if m:
             label, line = m.group(1), m.group(2).strip()
         mnem, ops = None, []
         if line:
+            # tách tên lệnh và toán hạng
             parts = line.split(None, 1)
             mnem = parts[0].upper()
             if len(parts) > 1:
@@ -93,6 +100,7 @@ def parse_lines(src):
     return out
 
 
+# dịch cả chương trình, trả về mã máy, listing và bảng ký hiệu
 def assemble(src):
     lines = parse_lines(src)
     symbols, pc = {}, 0
@@ -112,6 +120,7 @@ def assemble(src):
             if mnem:
                 if mnem not in ISA:
                     raise AsmError(f"lệnh không biết: {mnem}")
+                # mỗi lệnh chiếm một từ
                 pc += 1
         except AsmError as e:
             raise AsmError(f"dòng {n}: {e}") from None
@@ -125,6 +134,7 @@ def assemble(src):
             listing.append(f"{'':16}{raw}")
             continue
         try:
+            # đối chiếu toán hạng với kiểu khai báo trong ISA
             opcode, form = ISA[mnem]
             fields = form.split(",") if form else []
             if len(ops) != len(fields):
@@ -137,9 +147,11 @@ def assemble(src):
                     rs = parse_reg(tok)
                 else:
                     imm = eval_expr(tok, symbols)
+                    # nhận cả số âm bù 2 lẫn số không dấu 8 bit
                     if not -128 <= imm <= 255:
                         raise AsmError(f"giá trị tức thời ngoài phạm vi 8 bit: {imm}")
                     imm &= 0xFF
+            # ghép op | rd | rs | imm
             word = (opcode << 12) | (rd << 10) | (rs << 8) | imm
         except AsmError as e:
             raise AsmError(f"dòng {n}: {e}") from None
@@ -164,6 +176,7 @@ def main(argv):
     except AsmError as e:
         print(f"{src_path}: lỗi: {e}", file=sys.stderr)
         return 1
+    # phần còn trống điền HALT
     image = words + [FILL] * (MEM_WORDS - len(words))
     with open(hex_path, "w", encoding="ascii") as f:
         f.write("\n".join(f"{w:04X}" for w in image) + "\n")

@@ -24,6 +24,7 @@ OUT = Path(os.environ.get(
 S = 2                                   # hệ số phóng để ảnh nét khi in
 FONT = ImageFont.truetype("C:/Windows/Fonts/consola.ttf", 15 * S)
 FONT_B = ImageFont.truetype("C:/Windows/Fonts/consolab.ttf", 15 * S)
+# chiều cao dòng và bề rộng một ký tự
 LINE_H = 22 * S
 CHAR_W = FONT.getlength("M")
 
@@ -50,6 +51,7 @@ COLORS = [
 ]
 
 
+# màu và kiểu đậm của một token
 def style(tok):
     for t, c, b in COLORS:
         if tok in t:
@@ -57,6 +59,7 @@ def style(tok):
     return FG, False
 
 
+# chọn bộ tô màu theo đuôi file
 def lexer_for(path):
     if path.suffix in (".asm", ".uasm"):
         return NasmLexer()
@@ -74,12 +77,14 @@ def auto_ranges(src, max_lines=45):
     if lines and lines[-1] == "":
         lines.pop()
     n = len(lines)
+    # số đoạn, làm tròn lên
     k = -(-n // max_lines)
     out, start = [], 1
     for j in range(1, k):
         target = round(n * j / k)
         cands = [i for i in range(target - 8, target + 9)
                  if start + 10 <= i < n and i - start + 1 <= max_lines and not lines[i - 1].strip()]
+        # dòng trống gần điểm chia nhất
         end = min(cands, key=lambda i: abs(i - target)) if cands else min(target, start + max_lines - 1)
         out.append((start, end))
         start = end + 1
@@ -103,10 +108,12 @@ def token_lines(src, lexer):
     return lines
 
 
+# vẽ một đoạn mã ra file ảnh
 def render(rel, lines, first, last, out):
     rows = lines[first - 1:last]
     no_ln = bool(os.environ.get("SNAP_NOLN"))
     ln_w = 0 if no_ln else len(str(last)) * CHAR_W + 24 * S
+    # dòng dài nhất quyết định bề rộng khung
     width_chars = max((sum(len(t) for _, t in r) for r in rows), default=0)
     pad_out, pad_in, bar = 32 * S, 20 * S, 40 * S
     win_w = int(ln_w + width_chars * CHAR_W + 2 * pad_in)
@@ -119,13 +126,16 @@ def render(rel, lines, first, last, out):
     d.rounded_rectangle([x0 + 4 * S, y0 + 8 * S, x0 + win_w + 4 * S, y0 + win_h + 8 * S],
                         radius=10 * S, fill=(140, 152, 163))          # bóng đổ
     d.rounded_rectangle([x0, y0, x0 + win_w, y0 + win_h], radius=10 * S, fill=BG_WIN)
+    # ba nút tròn ở góc cửa sổ
     for i, c in enumerate([(255, 95, 86), (255, 189, 46), (39, 201, 63)]):
         cx, cy, r = x0 + (20 + 22 * i) * S, y0 + 20 * S, 6 * S
         d.ellipse([cx - r, cy - r, cx + r, cy + r], fill=c)
+    # tiêu đề căn giữa
     tw = FONT.getlength(rel)
     d.text((x0 + (win_w - tw) / 2, y0 + 10 * S), rel, font=FONT, fill=LN)
 
     y = y0 + bar
+    # từng dòng: số dòng bên trái, mã bên phải
     for n, row in enumerate(rows, start=first):
         num = "" if no_ln else str(n)
         d.text((x0 + pad_in + ln_w - 16 * S - FONT.getlength(num), y), num, font=FONT, fill=LN)
@@ -141,6 +151,7 @@ def render(rel, lines, first, last, out):
 
 
 def main():
+    # tham số: file, tên ảnh, các khoảng dòng
     path = ROOT / sys.argv[1]
     name = sys.argv[2]
     title = os.environ.get("SNAP_TITLE", sys.argv[1])

@@ -3,64 +3,64 @@
 ; Dịch: python sw/uasm.py sw/traffic.uasm rtl/vmicrocode.mem
 ; ============================================================================
 
-.equ L_NSG, 0b001100
-.equ L_NSY, 0b010100
-.equ L_AR,  0b100100
-.equ L_EWG, 0b100001
-.equ L_EWY, 0b100010
-.equ L_FON, 0b010010
-.equ L_OFF, 0b000000
+.equ L_NSG, 0b001100             ; NS xanh, EW đỏ
+.equ L_NSY, 0b010100             ; NS vàng, EW đỏ
+.equ L_AR,  0b100100             ; đỏ toàn phần
+.equ L_EWG, 0b100001             ; NS đỏ, EW xanh
+.equ L_EWY, 0b100010             ; NS đỏ, EW vàng
+.equ L_FON, 0b010010             ; đêm: cả hai vàng
+.equ L_OFF, 0b000000             ; đêm: tắt
 
-.equ T_NSG, 8
-.equ T_Y,   3
-.equ T_AR,  1
-.equ T_EWG, 5
-.equ T_FL,  1
-.equ T_PED, 4
+.equ T_NSG, 8                    ; xanh NS tối thiểu
+.equ T_Y,   3                    ; vàng
+.equ T_AR,  1                    ; đỏ toàn phần
+.equ T_EWG, 5                    ; xanh EW
+.equ T_FL,  1                    ; nửa chu kỳ nhấp nháy
+.equ T_PED, 4                    ; pha đi bộ
 
-nsg:    LIGHT L_NSG
-        TIMER T_NSG
+nsg:    LIGHT L_NSG              ; NS xanh
+        TIMER T_NSG              ; nạp 8 tick
 nsg_w:  BR    TRUN, nsg_w        ; chờ hết 8 tick
         BR    SN, nsy            ; có xe phụ hoặc ban đêm -> chuyển pha
         TIMER 1                  ; không thì chờ thêm 1 tick rồi xét lại
-        BR    ALWAYS, nsg_w
+        BR    ALWAYS, nsg_w      ; quay lại chờ
 
-nsy:    LIGHT L_NSY
-        TIMER T_Y
-nsy_w:  BR    TRUN, nsy_w
+nsy:    LIGHT L_NSY              ; NS vàng
+        TIMER T_Y                ; nạp 3 tick
+nsy_w:  BR    TRUN, nsy_w        ; chờ hết giờ
 
-ar1:    LIGHT L_AR
-        TIMER T_AR
-ar1_w:  BR    TRUN, ar1_w
-        BR    NIGHT, fon
+ar1:    LIGHT L_AR               ; đỏ toàn phần lần 1
+        TIMER T_AR               ; nạp 1 tick
+ar1_w:  BR    TRUN, ar1_w        ; chờ hết giờ
+        BR    NIGHT, fon         ; ban đêm thì sang nhấp nháy
 
-ewg:    LIGHT L_EWG
-        TIMER T_EWG
-ewg_w:  BR    TRUN, ewg_w
+ewg:    LIGHT L_EWG              ; EW xanh
+        TIMER T_EWG              ; nạp 5 tick
+ewg_w:  BR    TRUN, ewg_w        ; chờ hết giờ
 
-ewy:    LIGHT L_EWY
-        TIMER T_Y
-ewy_w:  BR    TRUN, ewy_w
+ewy:    LIGHT L_EWY              ; EW vàng
+        TIMER T_Y                ; nạp 3 tick
+ewy_w:  BR    TRUN, ewy_w        ; chờ hết giờ
 
-ar2:    LIGHT L_AR
-        TIMER T_AR
-ar2_w:  BR    TRUN, ar2_w
-        BR    NIGHT, fon
+ar2:    LIGHT L_AR               ; đỏ toàn phần lần 2
+        TIMER T_AR               ; nạp 1 tick
+ar2_w:  BR    TRUN, ar2_w        ; chờ hết giờ
+        BR    NIGHT, fon         ; ban đêm thì sang nhấp nháy
         BR    PED, ped           ; có yêu cầu đi bộ
-        BR    ALWAYS, nsg
+        BR    ALWAYS, nsg        ; về NS xanh
 
 ped:    CLR   1                  ; xoá yêu cầu ở đầu và cuối pha:
         TIMER T_PED              ; nút nhấn trong lúc PED bị bỏ qua
-ped_w:  BR    TRUN, ped_w
-        CLR   1
-        BR    ALWAYS, nsg
+ped_w:  BR    TRUN, ped_w        ; chờ hết giờ
+        CLR   1                  ; xoá yêu cầu lần nữa
+        BR    ALWAYS, nsg        ; về NS xanh
 
-fon:    LIGHT L_FON
-        TIMER T_FL
-fon_w:  BR    TRUN, fon_w
+fon:    LIGHT L_FON              ; đêm: vàng sáng
+        TIMER T_FL               ; nạp 1 tick
+fon_w:  BR    TRUN, fon_w        ; chờ hết giờ
 
-foff:   LIGHT L_OFF
-        TIMER T_FL
-foff_w: BR    TRUN, foff_w
-        BR    NIGHT, fon
-        BR    ALWAYS, ar2
+foff:   LIGHT L_OFF              ; đêm: tắt
+        TIMER T_FL               ; nạp 1 tick
+foff_w: BR    TRUN, foff_w       ; chờ hết giờ
+        BR    NIGHT, fon         ; ban đêm thì sang nhấp nháy
+        BR    ALWAYS, ar2        ; hết đêm, qua đỏ toàn phần

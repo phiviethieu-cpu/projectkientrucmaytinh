@@ -14,15 +14,18 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
+# thư mục báo cáo LaTeX và thư mục file phụ khi biên dịch
 TPL = ROOT / "GraduationThesisTemplate-main - Copy" / "GraduationThesisTemplate-main"
 AUX = Path(os.environ.get("TEMP", "/tmp")) / "tlc-report-aux"
 CHAPTERS = ["MoDau/PhanCong.tex", "NoiDung/Chuong1.tex", "NoiDung/Chuong2.tex", "NoiDung/Chuong3.tex",
             "NoiDung/Chuong4.tex", "NoiDung/Chuong5.tex", "KetThuc/KetLuan.tex"]
+# ký hiệu toán đổi sang Unicode
 MATH = {r"\geq": "≥", r"\lor": "∨", r"\land": "∧", r"\lnot": "¬", r"\leftarrow": "←",
         r"\rightarrow": "→", r"\times": "×", r"\pm": "±", r"\star": "★", r"\mathit": "",
         "-": "−"}
 
 
+# số thứ tự trích dẫn theo thứ tự \bibitem trong .bbl
 def cite_numbers():
     bbl = next((p for p in (AUX / "main.bbl", TPL / "main.bbl") if p.exists()), None)
     if bbl is None:
@@ -55,9 +58,11 @@ def label_numbers(chapters):
         m = re.search(r"\\chaptercustom\{(\d+)\}", src)
         if not m:
             continue
+        # bộ đếm hình, bảng, mục trong một chương
         c, fig, tab, sub = m.group(1), 0, 0, 0
         for tok in re.finditer(r"\\figurecustom\{[^}]*\}\{([^}]*)\}|\\begin\{table\}|"
                                r"\\label\{([^}]+)\}|\\subsection\{", src):
+            # gặp hình
             if tok.group(1):
                 fig += 1
                 nums[tok.group(1)] = f"{c}.{fig}"
@@ -81,6 +86,7 @@ def member_names():
 MEMBERS = member_names()
 
 
+# đổi lệnh LaTeX trong một dòng sang Markdown
 def inline(s, cites, labels):
     s = re.sub(r"\\tv([A-F])\{\}", lambda m: MEMBERS.get(m.group(1), "?"), s)
     s = re.sub(r"\\cite\{([^}]+)\}",
@@ -93,6 +99,7 @@ def inline(s, cites, labels):
     s = re.sub(r"\\textbf\{([^{}]*)\}", r"**\1**", s)
     s = re.sub(r"\\textit\{((?:[^{}]|\{[^{}]*\})*)\}", r"*\1*", s)
 
+    # công thức trong cặp dấu $
     def math(m):
         t = m.group(1)
         for k, v in MATH.items():
@@ -105,12 +112,14 @@ def inline(s, cites, labels):
     return s.strip()
 
 
+# đổi thân bảng tabular sang bảng Markdown
 def table(body, cites, labels):
     rows = [r for r in body.split("\\\\") if r.strip() and r.strip() != "\\hline"]
     cells = [[inline(c, cites, labels) for c in r.replace("\\hline", "").split("&")] for r in rows]
     cells = [r for r in cells if any(r)]
     if not cells:
         return ""
+    # hàng thiếu ô thì thêm ô trống
     w = max(len(r) for r in cells)
     cells = [r + [""] * (w - len(r)) for r in cells]
     out = ["| " + " | ".join(cells[0]) + " |", "|" + " --- |" * w]
@@ -123,6 +132,7 @@ def convert(src, cites, labels):
     # khối mã và bảng xử lý trước, thay bằng chỗ giữ tạm
     blocks = []
 
+    # cất khối đã xử lý, trả về chỗ giữ tạm
     def keep(text):
         blocks.append(text)
         return f"\n@@BLOCK{len(blocks) - 1}@@\n"
@@ -130,6 +140,7 @@ def convert(src, cites, labels):
     src = re.sub(r"\\begin\{lstlisting\}(\[[^\]]*\])?\n(.*?)\\end\{lstlisting\}",
                  lambda m: keep("```\n" + m.group(2).rstrip() + "\n```"), src, flags=re.S)
 
+    # xử lý một môi trường table
     def tbl(m):
         env = m.group(0)
         cap = re.search(r"\\tcap\{([^}]*)\}", env)
@@ -141,6 +152,7 @@ def convert(src, cites, labels):
         return keep(head + table(body.group(1), cites, labels) + tail) if body else ""
     src = re.sub(r"\\begin\{table\}.*?\\end\{table\}", tbl, src, flags=re.S)
 
+    # chú thích hình, bỏ dấu thoát của gạch dưới
     def cap(m):
         return m.group(2).replace(chr(92) + "_", "_")
 
@@ -148,6 +160,7 @@ def convert(src, cites, labels):
                  lambda m: keep(f"![{cap(m)}](figures/{m.group(1)})\n\n"
                                 f"*Hình {labels.get('Images/' + m.group(1), '?')}. {cap(m)}*"), src)
 
+    # phần còn lại xử lý từng dòng
     for line in src.split("\n"):
         t = line.strip()
         if not t or t.startswith("%") or re.match(r"\\(setcounter|cleardoublepage|phantomsection|addcontentsline)", t):
@@ -176,6 +189,7 @@ def convert(src, cites, labels):
             continue
         md.append(inline(t, cites, labels))
     text = "\n".join(md)
+    # đặt lại các khối đã cất
     text = re.sub(r"@@BLOCK(\d+)@@", lambda m: blocks[int(m.group(1))], text)
     return re.sub(r"\n{3,}", "\n\n", text).strip()
 
@@ -194,6 +208,7 @@ def main():
                      cites, labels).join(["## Tóm tắt\n\n", ""])]
     for ch in CHAPTERS:
         parts.append(convert((TPL / ch).read_text(encoding="utf-8"), cites, labels))
+    # danh mục tham khảo ở cuối
     parts.append("## Tài liệu tham khảo\n\n" +
                  "\n".join(f"{i}. {e}" for i, e in enumerate(bib_entries(bbl), 1)))
     out = ROOT / "docs" / "BaoCao.md"
