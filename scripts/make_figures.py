@@ -447,6 +447,78 @@ def fig_arch():
     plt.close(fig)
 
 
+def fig_control():
+    """Hai kiểu khối điều khiển trong lý thuyết (Chương 2)."""
+    fig, axs = plt.subplots(1, 2, figsize=(11, 3.7))
+    for ax in axs:
+        ax.set_xlim(0, 10)
+        ax.set_ylim(0, 6)
+        ax.axis("off")
+    ax = axs[0]
+    ax.set_title("(a) Điều khiển cứng", loc="left", color=INK, fontsize=10)
+    inp = box(ax, 1.7, 4.4, 2.6, 0.9, "Đầu vào, cờ trạng thái", SURFACE)
+    log = box(ax, 5.6, 4.4, 2.8, 1.2, "Logic tổ hợp\n(hàm trạng thái kế\nvà hàm đầu ra)", SERIES[0] + "22")
+    reg = box(ax, 5.6, 1.7, 2.8, 0.9, "Thanh ghi trạng thái", "#ebeae6")
+    out = box(ax, 9.0, 4.4, 1.5, 0.9, "Tín hiệu\nđiều khiển", SURFACE)
+    arrow(ax, inp, log)
+    arrow(ax, log, out)
+    arrow(ax, (5.0, 3.8), (5.0, 2.15), "trạng thái kế", off=(-0.85, 0))
+    arrow(ax, (6.2, 2.15), (6.2, 3.8), "trạng thái", off=(0.7, 0))
+
+    ax = axs[1]
+    ax.set_title("(b) Điều khiển vi chương trình", loc="left", color=INK, fontsize=10)
+    upc = box(ax, 1.3, 2.0, 1.8, 0.8, "uPC", "#ebeae6")
+    cs = box(ax, 4.4, 4.4, 2.8, 1.1, "Bộ nhớ điều khiển\n(vi chương trình)", SERIES[1] + "22")
+    mir = box(ax, 8.2, 4.4, 2.2, 0.9, "Thanh ghi vi lệnh\nMIR", "#ebeae6")
+    seq = box(ax, 4.9, 2.0, 2.8, 0.9, "Logic chọn địa chỉ\nkế tiếp", SERIES[1] + "22")
+    out = box(ax, 8.6, 2.0, 1.6, 0.9, "Tín hiệu\nđiều khiển", SURFACE)
+    arrow(ax, upc, cs, "địa chỉ", off=(-0.55, 0.05))
+    arrow(ax, cs, mir)
+    arrow(ax, mir, out)
+    arrow(ax, mir, seq, "trường địa chỉ", off=(-0.75, 0.25))
+    arrow(ax, seq, upc)
+    ax.text(4.9, 0.95, "↑ đầu vào, cờ trạng thái", ha="center", color=INK2, fontsize=8)
+    fig.tight_layout()
+    fig.savefig(OUT / "fig_control.png", dpi=200)
+    plt.close(fig)
+
+
+def fig_cpu():
+    """Datapath của mini_cpu (Chương 3)."""
+    fig, ax = plt.subplots(figsize=(10.5, 4.7))
+    ax.set_xlim(0, 13)
+    ax.set_ylim(0, 7)
+    ax.axis("off")
+    hl, reg = SERIES[3] + "22", "#ebeae6"
+    pc = box(ax, 1.2, 5.6, 1.5, 0.8, "PC", reg)
+    im = box(ax, 3.9, 5.6, 2.2, 1.0, "IMEM\n256 × 16 bit", hl)
+    ir = box(ax, 6.8, 5.6, 1.5, 0.8, "IR", reg)
+    ctl = box(ax, 10.3, 5.6, 3.0, 1.1, "FSM FETCH/EXEC\n+ giải mã opcode", hl)
+    rf = box(ax, 4.2, 2.9, 2.5, 1.3, "Tệp thanh ghi\nR0–R3", reg)
+    alu = box(ax, 7.8, 2.9, 1.9, 1.3, "ALU 8 bit", hl)
+    z = box(ax, 10.3, 3.7, 1.1, 0.7, "Z", reg)
+    io = box(ax, 10.6, 1.6, 2.8, 1.0, "Bus vào/ra\n(IN, OUT)", SURFACE)
+    arrow(ax, pc, im, "địa chỉ", off=(0, 0.25))
+    arrow(ax, im, ir, "lệnh", off=(0, 0.25))
+    arrow(ax, ir, ctl, "op", off=(0, 0.25))
+    arrow(ax, (6.3, 5.2), (4.9, 3.6), "rd, rs", off=(0.5, -0.3))
+    arrow(ax, (7.3, 5.2), (7.8, 3.6), "imm", off=(0.35, 0))
+    arrow(ax, (5.45, 3.2), (6.85, 3.2), "a", off=(0, 0.2))
+    arrow(ax, (5.45, 2.6), (6.85, 2.6), "b", off=(0, 0.2))
+    arrow(ax, alu, z)
+    arrow(ax, (10.3, 4.05), (10.3, 5.05), "cờ Z", off=(0.4, 0))
+    arrow(ax, (7.3, 2.25), (3.6, 2.25), rad=-0.32)
+    ax.text(3.9, 1.25, "kết quả ghi về rd", ha="center", color=INK2, fontsize=7.5)
+    arrow(ax, (5.2, 2.25), (9.2, 1.3), "OUT (từ rs)", rad=0.42, off=(1.2, -1.0))
+    arrow(ax, (9.2, 1.9), (8.4, 2.25), "IN", off=(-0.15, -0.3))
+    ax.add_patch(FancyArrowPatch((8.85, 5.05), (1.2, 5.2), arrowstyle="-|>", mutation_scale=10, color=INK2, lw=1,
+                                 connectionstyle="arc3,rad=-0.12", shrinkA=0, shrinkB=0, zorder=1, ls="--"))
+    ax.text(3.0, 4.35, "PC mới khi nhảy (JMP, JZ, JNZ, CALL, RET)", ha="center", color=INK2, fontsize=7.5)
+    fig.tight_layout()
+    fig.savefig(OUT / "fig_cpu.png", dpi=200)
+    plt.close(fig)
+
+
 def main():
     sys.stdout.reconfigure(encoding="utf-8")
     OUT.mkdir(parents=True, exist_ok=True)
@@ -457,7 +529,9 @@ def main():
     fig_exp_ped()
     fig_state()
     fig_arch()
-    for p in sorted(OUT.glob("*.png")):
+    fig_control()
+    fig_cpu()
+    for p in sorted(OUT.glob("fig_*.png")):
         print(p.relative_to(ROOT))
 
 

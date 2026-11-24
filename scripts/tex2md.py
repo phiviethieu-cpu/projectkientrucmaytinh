@@ -16,7 +16,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 TPL = ROOT / "GraduationThesisTemplate-main - Copy" / "GraduationThesisTemplate-main"
 AUX = Path(os.environ.get("TEMP", "/tmp")) / "tlc-report-aux"
-CHAPTERS = ["NoiDung/Chuong1.tex", "NoiDung/Chuong2.tex", "NoiDung/Chuong3.tex",
+CHAPTERS = ["MoDau/PhanCong.tex", "NoiDung/Chuong1.tex", "NoiDung/Chuong2.tex", "NoiDung/Chuong3.tex",
             "NoiDung/Chuong4.tex", "NoiDung/Chuong5.tex", "KetThuc/KetLuan.tex"]
 MATH = {r"\geq": "≥", r"\lor": "∨", r"\land": "∧", r"\lnot": "¬", r"\leftarrow": "←",
         r"\rightarrow": "→", r"\times": "×", r"\pm": "±", r"\star": "★", r"\mathit": "",
@@ -72,10 +72,22 @@ def label_numbers(chapters):
     return nums
 
 
+def member_names():
+    """Tên thành viên khai báo trong main.tex: {'A': 'Thành viên 1', ...}."""
+    src = (TPL / "main.tex").read_text(encoding="utf-8")
+    return dict(re.findall(r"\\newcommand\{\\tv([A-F])\}\{([^}]*)\}", src))
+
+
+MEMBERS = member_names()
+
+
 def inline(s, cites, labels):
+    s = re.sub(r"\\tv([A-F])\{\}", lambda m: MEMBERS.get(m.group(1), "?"), s)
     s = re.sub(r"\\cite\{([^}]+)\}",
                lambda m: "[" + ", ".join(str(cites.get(k.strip(), "?")) for k in m.group(1).split(",")) + "]", s)
     s = re.sub(r"\\ref\{([^}]+)\}", lambda m: labels.get(m.group(1), "?"), s)
+    s = re.sub(r"\\texttt\{\\\{(.*?)\\\}\}", lambda m: "`{" + m.group(1).replace(
+        "\\textquotesingle ", "'").replace("\\_", "_") + "}`", s)
     s = re.sub(r"\\sig\{((?:[^{}]|\{[^{}]*\})*)\}", lambda m: "`" + m.group(1) + "`", s)
     s = re.sub(r"\\texttt\{\\textdollar ([^}]*)\}", r"`$\1`", s)
     s = re.sub(r"\\textbf\{([^{}]*)\}", r"**\1**", s)
@@ -129,9 +141,12 @@ def convert(src, cites, labels):
         return keep(head + table(body.group(1), cites, labels) + tail) if body else ""
     src = re.sub(r"\\begin\{table\}.*?\\end\{table\}", tbl, src, flags=re.S)
 
+    def cap(m):
+        return m.group(2).replace(chr(92) + "_", "_")
+
     src = re.sub(r"\\figurecustom\{[^}]*\}\{Images/([^}]*)\}\{([^}]*)\}",
-                 lambda m: keep(f"![{m.group(2)}](figures/{m.group(1)})\n\n"
-                                f"*Hình {labels.get('Images/' + m.group(1), '?')}. {m.group(2)}*"), src)
+                 lambda m: keep(f"![{cap(m)}](figures/{m.group(1)})\n\n"
+                                f"*Hình {labels.get('Images/' + m.group(1), '?')}. {cap(m)}*"), src)
 
     for line in src.split("\n"):
         t = line.strip()
